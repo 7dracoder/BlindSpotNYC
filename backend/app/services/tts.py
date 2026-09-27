@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import httpx
 
 from app.config import get_settings
+from app.services import audio
 
 
 async def _elevenlabs(key: str, voice_id: str, text: str) -> bytes:
@@ -33,10 +32,8 @@ async def _grok(key: str, text: str) -> bytes:
 
 
 async def synthesize(text: str, name: str) -> tuple[str | None, str | None]:
-    """Writes <audio_dir>/<name>.mp3. Returns (url, engine)."""
+    """Stores a briefing MP3. Returns (url, engine)."""
     s = get_settings()
-    out = Path(s.audio_dir) / f"{name}.mp3"
-    out.parent.mkdir(parents=True, exist_ok=True)
 
     attempts = []
     if s.elevenlabs_api_key:
@@ -46,7 +43,7 @@ async def synthesize(text: str, name: str) -> tuple[str | None, str | None]:
 
     for engine, call in attempts:
         try:
-            out.write_bytes(await call())
+            await audio.save(f"{name}.mp3", await call())
             return f"/api/audio/{name}.mp3", engine
         except httpx.HTTPError as exc:
             print(f"[tts] {engine} failed: {exc}")

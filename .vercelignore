@@ -1,0 +1,12 @@
+.git
+**/.env
+**/.env.*
+**/.venv
+**/node_modules
+**/__pycache__
+**/dist
+**/*.tsbuildinfo
+backend/data/audio
+photon-agent
+.do
+***.local.yaml

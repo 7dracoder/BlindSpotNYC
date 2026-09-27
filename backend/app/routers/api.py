@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
-from pathlib import Path
+import re
 from urllib.parse import quote
 
 import asyncpg
@@ -19,7 +19,7 @@ from app.models.building import (
     SmsLookupRequest,
     SmsLookupResponse,
 )
-from app.services import city_tiles, finance, map_layers, nessie_client, nyc_data, store, tiger, voice
+from app.services import audio, city_tiles, finance, map_layers, nessie_client, nyc_data, store, tiger, voice
 from app.services.llm import generate_briefing
 from app.services.news import building_news
 from app.services.tts import synthesize
@@ -63,12 +63,10 @@ async def _tiger_trend(place: dict, doc: dict) -> None:
 async def _analysis(building: dict) -> dict:
     cached = await store.get_analysis(building["bin"], building["fetched_at"])
     if cached:
-        # App Platform's filesystem is ephemeral. Atlas can retain an audio URL
-        # after a deployment removes its MP3; clear it so the audio route retries.
+        # Validate the actual audio store before reusing a cached URL.
         audio_url = cached.get("audio_url")
         if audio_url and audio_url.startswith("/api/audio/"):
-            audio_file = Path(get_settings().audio_dir) / Path(audio_url).name
-            if not audio_file.is_file():
+            if not await audio.exists(audio_url.rsplit("/", 1)[-1]):
                 cached = {**cached, "audio_url": None, "audio_engine": None}
         return cached
     (briefing, engine), news = await asyncio.gather(
@@ -93,6 +91,16 @@ async def _analysis(building: dict) -> dict:
 @router.get("/health")
 async def health():
     return {"ok": True}
+
+
+@router.get("/audio/{filename}")
+async def audio_file(filename: str):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+\.mp3", filename):
+        raise HTTPException(status_code=404, detail="Audio not found")
+    data = await audio.read(filename)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Audio not found")
+    return Response(data, media_type="audio/mpeg", headers={"Cache-Control": "public, max-age=3600"})
 
 
 @router.get("/search", response_model=list[Place])

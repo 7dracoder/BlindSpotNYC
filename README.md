@@ -407,6 +407,26 @@ npm start
 
 The agent listens through Spectrum's iMessage and terminal providers. Messages containing an address are forwarded to `/api/sms/lookup`. Greetings or messages without digits return usage help. This is a separate long-running process and is not included in the web container or default DigitalOcean spec. Do not send a real message during testing unless you intend to contact that recipient.
 
+## Deploy to Vercel
+
+The root `vercel.json` defines two services under one HTTPS origin: Vite serves the frontend and FastAPI handles `/api/*`. Import this repository with the repository root as the project's root directory; the service configuration selects `frontend/` and `backend/` automatically.
+
+Set the configured backend variables from `backend/.env` in the project's **Production** environment. Keep backend API keys and database connection strings server-side. Add `VITE_GOOGLE_MAPS_API_KEY` for the frontend build; this particular key is intentionally visible to the browser and must have API and HTTPS referrer restrictions. Leave `VITE_API_URL` empty for same-origin requests.
+
+For Vercel, additionally set:
+
+| Variable | Production value |
+|---|---|
+| `SERVERLESS` | `true` |
+| `AUDIO_DIR` | `/tmp/blindspot-audio` |
+| `PUBLIC_APP_URL` / `PUBLIC_API_URL` | The project's assigned HTTPS origin |
+| `CORS_ORIGINS` | The same HTTPS origin |
+| `FRONTEND_DIST` | Empty; the frontend service serves the UI |
+
+Serverless mode skips background map-layer prewarming and persists briefing MP3s in the existing MongoDB Atlas database using GridFS. This lets another function instance serve the same audio URL. Without MongoDB connectivity, the API falls back to temporary local storage, which does not guarantee playback across instances. Allow the deployment's database connections using the database providers' supported network controls.
+
+After deploying, verify the homepage, `/api/health`, address search, both map sources, finance calculations, and briefing playback. Add the assigned HTTPS origin to the Google key's allowed referrers if required. The Photon iMessage agent is a separate long-running process and is not deployed as a Vercel service. Nessie remains optional and needs its own backend key before sandbox synchronization works.
+
 ## Deploy to DigitalOcean
 
 The root [Dockerfile](Dockerfile) builds the React frontend and runs FastAPI as a non-root user. FastAPI serves the compiled UI, `/api`, and MP3s from one origin on port 8080. There is no production dependency on Vite's development proxy.
@@ -460,7 +480,7 @@ FRONTEND_DIST=../frontend/dist uv run uvicorn app.main:app --host 127.0.0.1 --po
 
 ### Persistence
 
-App Platform's container filesystem is ephemeral. Generated MP3s may disappear after a restart or deployment. The API detects stale cached audio links and regenerates files on the next audio request, provided TTS remains configured. For durable audio or multiple replicas, move audio to object storage and update the synthesis/storage code.
+App Platform's container filesystem is ephemeral. Generated MP3s may disappear after a restart or deployment. The API detects stale cached audio links and regenerates files on the next audio request, provided TTS remains configured. Set `SERVERLESS=true` with MongoDB Atlas connected to use the shared GridFS audio store for durable playback across restarts and replicas; this also disables background layer prewarming.
 
 MongoDB Atlas and Tiger Cloud persist independently of the container. With the in-memory fallback, reports and nearby-building history disappear when the process restarts. Keep the default single API process if relying on that fallback.
 

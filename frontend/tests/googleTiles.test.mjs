@@ -10,7 +10,7 @@ test('Google tile URLs preserve sessions and credentials in dev and production',
     return new Response('{}')
   }
   try {
-    const dev = createGoogleTileFetch('test-key', 'http://127.0.0.1:5173')
+    const dev = createGoogleTileFetch('test-key', 'http://127.0.0.1:5173', true)
     for (const uri of [
       '/v1/3dtiles/datasets/test/files/tile.glb?session=abc',
       'https://tile.googleapis.com/v1/3dtiles/datasets/test/files/tile.glb?session=abc',
@@ -19,9 +19,12 @@ test('Google tile URLs preserve sessions and credentials in dev and production',
     ]) await dev(uri)
     assert.ok(calls.every((call) => call.url === 'http://127.0.0.1:5173/v1/3dtiles/datasets/test/files/tile.glb?session=abc'))
     assert.ok(calls.every((call) => call.headers.get('X-GOOG-API-KEY') === 'test-key'))
-    const production = createGoogleTileFetch('test-key')
+    const production = createGoogleTileFetch('test-key', 'https://blindspot.example.com', false)
     await production('/v1/3dtiles/root.json')
-    assert.equal(calls.at(-1).url, 'https://tile.googleapis.com/v1/3dtiles/root.json')
+    assert.equal(calls.at(-1).url, 'https://tile.googleapis.com/v1/3dtiles/root.json?key=test-key')
+    assert.equal(calls.at(-1).headers.get('X-GOOG-API-KEY'), null)
+    await production('https://blindspot.example.com/v1/3dtiles/datasets/test/files/tile.glb?session=abc')
+    assert.equal(calls.at(-1).url, 'https://tile.googleapis.com/v1/3dtiles/datasets/test/files/tile.glb?session=abc&key=test-key')
     await production(new Request('https://tile.googleapis.com/v1/3dtiles/root.json', { headers: { 'X-Test': 'kept' } }))
     assert.equal(calls.at(-1).headers.get('X-Test'), 'kept')
     await production('https://example.com/image.png')
@@ -37,7 +40,7 @@ test('authentication failures trigger a fallback and reject the tile request', a
   globalThis.fetch = async () => new Response('', { status: 403 })
   const reasons = []
   try {
-    const load = createGoogleTileFetch('test-key', undefined, (reason) => reasons.push(reason))
+    const load = createGoogleTileFetch('test-key', 'https://blindspot.example.com', false, (reason) => reasons.push(reason))
     await assert.rejects(load('/v1/3dtiles/datasets/test/tile.glb'), /403/)
     assert.deepEqual(reasons, ['Google Maps access was denied.'])
   } finally {

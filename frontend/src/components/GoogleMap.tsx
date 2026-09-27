@@ -48,7 +48,7 @@ export function GoogleMap({
   const [ready, setReady] = useState(false)
   const [tilesLoaded, setTilesLoaded] = useState(false)
   const [credits, setCredits] = useState('')
-  const googleFetch = useRef(createGoogleTileFetch(KEY ?? '', import.meta.env.DEV ? window.location.origin : undefined,
+  const googleFetch = useRef(createGoogleTileFetch(KEY ?? '', window.location.origin, import.meta.env.DEV,
     (reason) => fail.current(reason)))
   const [hover, setHover] = useState<Hover | null>(null)
   const fail = useRef(onFail)
@@ -68,36 +68,36 @@ export function GoogleMap({
     let deck: Deck<MapView>
     try {
       deck = new Deck({
-      parent: el,
-      width: el.clientWidth || window.innerWidth,
-      height: el.clientHeight || window.innerHeight,
-      style: { background: '#0b1220', position: 'absolute', inset: '0', width: '100%', height: '100%' },
-      views: new MapView({
-        nearZMultiplier: 0.1,
-        farZMultiplier: 1.5,
-        repeat: false,
-      }),
-      initialViewState: { ...INITIAL_VIEW, maxPitch: 60, minPitch: 0 },
-      controller: {
-        dragPan: true,
-        // ⌘ / Ctrl / Shift + drag (and 3-finger drag while holding ⌘) rotates
-        dragRotate: true,
-        touchRotate: true,
-        trackpadGesture: true,
-        touchZoom: true,
-        scrollZoom: true,
-        doubleClickZoom: true,
-        inertia: true,
-      },
-      getCursor: ({ isHovering }) => (isHovering ? 'pointer' : 'grab'),
-      onError: () => {
-        if (!dead) fail.current('Google Maps could not be loaded.')
-      },
-      onClick: (info) => {
-        if (info.object) return
-        const [lng, lat] = info.coordinate ?? []
-        if (lng != null && lat != null) pickAt.current(lng, lat)
-      },
+        parent: el,
+        width: el.clientWidth || window.innerWidth,
+        height: el.clientHeight || window.innerHeight,
+        style: { background: '#0b1220', position: 'absolute', inset: '0', width: '100%', height: '100%' },
+        views: new MapView({
+          nearZMultiplier: 0.1,
+          farZMultiplier: 1.5,
+          repeat: false,
+        }),
+        initialViewState: { ...INITIAL_VIEW, maxPitch: 60, minPitch: 0 },
+        controller: {
+          dragPan: true,
+          // ⌘ / Ctrl / Shift + drag (and 3-finger drag while holding ⌘) rotates
+          dragRotate: true,
+          touchRotate: true,
+          trackpadGesture: true,
+          touchZoom: true,
+          scrollZoom: true,
+          doubleClickZoom: true,
+          inertia: true,
+        },
+        getCursor: ({ isHovering }) => (isHovering ? 'pointer' : 'grab'),
+        onError: () => {
+          if (!dead) fail.current('Google Maps could not be loaded.')
+        },
+        onClick: (info) => {
+          if (info.object) return
+          const [lng, lat] = info.coordinate ?? []
+          if (lng != null && lat != null) pickAt.current(lng, lat)
+        },
       })
     } catch {
       fail.current('Your browser could not start the 3D map.')

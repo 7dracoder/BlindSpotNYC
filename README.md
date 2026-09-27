@@ -460,7 +460,7 @@ npm ci
 npx tsc --noEmit
 ```
 
-GitHub Actions runs these checks on pushes to `main` and pull requests. Provider-backed functionality also needs a live smoke test with the appropriate credentials. The health endpoint confirms API availability; it does not certify that every external provider is reachable.
+GitHub Actions runs these checks and builds the Docker image on pushes to `main` and pull requests. Provider-backed functionality also needs a live smoke test with the appropriate credentials. The health endpoint confirms API availability; it does not certify that every external provider is reachable.
 
 ## Data limits and operational considerations
 

@@ -1,0 +1,36 @@
+name: blindspot-nyc
+region: nyc
+services:
+  - name: web
+    git:
+      repo_clone_url: https://github.com/7dracoder/BlindSpotNYC.git
+      branch: main
+    source_dir: /
+    dockerfile_path: Dockerfile
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 30
+    envs:
+      - key: PUBLIC_APP_URL
+        scope: RUN_TIME
+        value: ${APP_URL}
+      - key: PUBLIC_API_URL
+        scope: RUN_TIME
+        value: ${APP_URL}
+      - key: CORS_ORIGINS
+        scope: RUN_TIME
+        value: ${APP_URL}
+      - key: VITE_GOOGLE_MAPS_API_KEY
+        scope: BUILD_TIME
+        type: SECRET
+        value: ""
+ingress:
+  rules:
+    - component:
+        name: web
+      match:
+        path:
+          prefix: /

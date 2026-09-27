@@ -1,0 +1,36 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@deck.gl/core": "^9.4.0",
+    "@deck.gl/geo-layers": "^9.4.0",
+    "@deck.gl/layers": "^9.4.0",
+    "@deck.gl/mapbox": "^9.4.0",
+    "@elevenlabs/react": "^1.15.2",
+    "@loaders.gl/3d-tiles": "^4.5.2",
+    "blocklight": "^0.2.0",
+    "maplibre-gl": "^6.11.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}

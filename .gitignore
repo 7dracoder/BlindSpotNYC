@@ -1,0 +1,13 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+**/.venv/
+**/node_modules/
+**/dist/
+**/__pycache__/
+backend/data/audio/*.mp3
+*.pyc
+.pytest_cache/
+*.tsbuildinfo
+.do/*.local.yaml

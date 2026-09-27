@@ -119,22 +119,44 @@ Complaint matching uses BBL **or** normalized street address, because condo unit
 
 ## How scoring works
 
-The score is computed in [`backend/app/services/scoring.py`](backend/app/services/scoring.py):
+### 1. Pitch equation — conceptual / roadmap
 
-```text
-hazard_score = min(100, S_fire + S_shed + S_env + S_repeat)
-```
+$$
+\text{Disaster Vulnerability} = w_1(\text{Hazard / Flood Zone}) + w_2(\text{Building Age \& Type}) + w_3(\text{Active Violations \& 311s})
+$$
 
-| Component | Points | Trigger |
+This is the conceptual model for the pitch, not the formula executed by the backend. The weights are not calibrated or implemented. Flood-zone exposure and building age/type are future scoring inputs; existing flood overlays and year-built metadata currently provide context only.
+
+**Slide wording:** “Today = $w_3$ fully live; $w_1$/$w_2$ are next layers.” Here, “fully live” refers to the shipped record-based index below, rather than a fitted weighted vulnerability model.
+
+### 2. Shipped backend — actual calculation
+
+$$
+\text{Hazard Score} = \min\big(100,\; S_{\text{fire}} + S_{\text{shed}} + S_{\text{env}} + S_{\text{repeat}}\big)
+$$
+
+The component rules are implemented in [`backend/app/services/scoring.py`](backend/app/services/scoring.py), and [`backend/app/services/nyc_data.py`](backend/app/services/nyc_data.py) sums and caps them at 100. Each component is added once when its trigger is met.
+
+| Term | Points | Shipped trigger |
 | --- | ---: | --- |
-| `S_fire` | 40 | At least one flagged fire/egress violation: selected HPD class C descriptions or DOB sprinkler, emergency-power, or photoluminescent-device violations |
-| `S_shed` | 25 | An active sidewalk shed with estimated continuous coverage **greater than 730 days** |
-| `S_env` | 15 | At least three selected heat/sewer/catch-basin complaints in the last 365 days |
-| `S_repeat` | 20 | Retrieved open violations plus selected recent complaints total **more than five** |
+| $S_{\text{fire}}$ | +40 | At least one flagged fire/egress violation: HPD class C descriptions matching conditions such as self-closing doors, fire escapes, egress, or detectors; or DOB sprinkler, emergency-power, or photoluminescent-device violations |
+| $S_{\text{shed}}$ | +25 | An active sidewalk shed with estimated continuous coverage **greater than 730 days** |
+| $S_{\text{env}}$ | +15 | **At least three** selected 311 heat/sewer/catch-basin complaints in the last 365 days |
+| $S_{\text{repeat}}$ | +20 | Retrieved open violations plus selected recent complaints total **more than five** |
 
-**LOW:** 0–20 · **MODERATE:** 21–59 · **HIGH:** 60–100
+The fire trigger includes both HPD and DOB records; it is broader than “critical DOB egress / self-closing / fire escape.” The table reflects the current code rather than narrowing the shipped behavior to the pitch shorthand.
 
 For example, a building with a flagged fire condition, a shed older than 730 days, and more than five violations/complaints scores `40 + 25 + 20 = 85`. Three qualifying complaints would add the remaining 15 points.
+
+### 3. Dial thresholds
+
+| Hazard score | Backend label | Dial presentation |
+| --- | --- | --- |
+| 0–20 | LOW | Green |
+| 21–59 | MODERATE | Yellow / amber |
+| 60–100 | HIGH | Red; pulsing red is the proposed demo treatment |
+
+The backend thresholds and the UI's green/amber/red colors already match these ranges. The current dial is static; pulsing red is a presentation roadmap item, not shipped behavior. If added, pulse only the high-risk dial, and respect reduced-motion preferences.
 
 Citywide rat, facade, vacate, and flood-area layers provide context. They do not independently add points to this formula. The “flood” complaint category specifically covers sewer-backup/catch-basin reports; it is not a modeled flood-risk assessment.
 

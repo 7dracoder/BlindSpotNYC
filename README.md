@@ -4,9 +4,34 @@
 
 BlindSpot NYC turns New York City's public building records into an interactive risk report. Search an address or select a building on the map to explore fire and egress violations, long-running sidewalk sheds, heat and sewer complaints, and the history behind them. The app explains its score, writes a plain-English briefing, and can read that briefing aloud or answer questions through a voice inspector.
 
-[Source code](https://github.com/7dracoder/BlindSpotNYC) · [NYC Open Data](https://opendata.cityofnewyork.us/) · [Deployment configuration](.do/app.yaml)
+[Live demo](https://blindspot-nyc.vercel.app/) · [Devpost](https://devpost.com/software/blindspot-x87p4j) · [Source code](https://github.com/7dracoder/BlindSpotNYC) · [NYC Open Data](https://opendata.cityofnewyork.us/)
 
 > BlindSpot is a screening tool built from public records. Its score is a project-defined index, not an official city rating or a probability of harm. Missing records and a low score do not establish that a building is safe.
+
+
+![BlindSpot NYC: Google 3D building report with explainable risk score](docs/screenshots/risk-report.png)
+
+## Try the demo
+
+1. Open [3605 Sedgwick Avenue, Bronx](https://blindspot-nyc.vercel.app/?q=3605%20Sedgwick%20Avenue%2C%20Bronx) to explore a high-score report. Inspect the component points, shed history, and retrieved records.
+2. Compare [3322 Bailey Avenue, Bronx](https://blindspot-nyc.vercel.app/?q=3322%20Bailey%20Avenue%2C%20Bronx). Its current snapshot scores 35 rather than 100; records and scores can change as city data refreshes.
+3. Switch **Google / City**, try the civic layers, and turn on **Sandy 2012** or **Evacuation 1–3** for geographic context.
+4. Read the Grok briefing, play the ElevenLabs audio, or talk to the voice inspector. Open **Follow the Money → Edit assumptions** to explore a hypothetical repair scenario.
+
+### Integration status
+
+| Capability | Implementation and verification |
+| --- | --- |
+| Public-record reports and scores | Live on Vercel; deterministic scoring and source timestamps |
+| Google 3D and City maps | Live; map gestures preserve the size of floating controls |
+| Grok, ElevenLabs, Tavily | Briefings, audio, voice sessions, and address-matched coverage implemented; the live voice inspector was exercised in the browser |
+| Tiger Data | Deployed annual complaint trends verified against the Tiger-backed response |
+| MongoDB Atlas | Snapshot and geospatial caching implemented; local connectivity verified. Vercel encountered connection failures, so cloud durability remains unverified |
+| Follow the Money | Local amortization calculator works without a banking API; all inputs are visible and editable |
+| Nessie | Legacy optional adapter implemented; live transactions and a self-hosted replacement are not verified |
+| Photon Spectrum | Separate listener connected; terminal report lookup passed. Phone delivery remains unverified after a project-routing rejection |
+
+Development used Cursor, Gemini, and OpenAI Codex. The deployed briefing model is Grok; development tools are distinct from runtime integrations.
 
 ## Contents
 
@@ -15,11 +40,13 @@ BlindSpot NYC turns New York City's public building records into an interactive 
 - [Technology stack](#technology-stack)
 - [Public data sources](#public-data-sources)
 - [How scoring works](#how-scoring-works)
+- [Follow the Money](#follow-the-money--nessie-integration)
 - [Run locally](#run-locally)
 - [Environment variables](#environment-variables)
 - [Google 3D map setup and troubleshooting](#google-3d-map-setup-and-troubleshooting)
 - [API reference](#api-reference)
 - [Optional integrations](#optional-integrations)
+- [Deploy to Vercel](#deploy-to-vercel)
 - [Deploy to DigitalOcean](#deploy-to-digitalocean)
 - [Repository layout](#repository-layout)
 - [Verification and development](#verification-and-development)
@@ -39,6 +66,18 @@ BlindSpot NYC turns New York City's public building records into an interactive 
 - **Previously scanned buildings:** Open nearby reports from the application's cache.
 - **Shareable reports:** The `?q=<address>` URL opens and scans an address directly.
 - **Optional iMessage access:** A separate Photon Spectrum agent accepts addresses and replies with the report and a web-map link.
+
+### Financial scenario
+
+![Follow the Money: assumed shed rent compared with a facade-repair loan](docs/screenshots/follow-the-money.png)
+
+The defaults produce a $3,483.25 monthly loan payment versus $1,500 assumed shed rent. The $1,983.25 difference is a hypothetical cash-flow comparison, not observed profit or proof of owner intent.
+
+### City layers
+
+![City map with heat-complaint counts joined to building footprints](docs/screenshots/city-layers.png)
+
+City view links public records to building geometry. Flood overlays and building age are contextual inputs today; neither adds points to the shipped hazard score.
 
 ## Architecture and request flow
 
@@ -90,7 +129,9 @@ Without MongoDB, reports are cached in process memory. Without Tiger Cloud, annu
 | Audio/voice | ElevenLabs TTS, ElevenLabs Agents, `@elevenlabs/react`, Grok TTS | Audio files and interactive voice sessions |
 | News | Tavily | Address-specific search results |
 | Messaging | Photon Spectrum, `spectrum-ts`, tsx | Optional iMessage and terminal agent |
-| Packaging/deployment | uv, Docker, DigitalOcean App Platform, GitHub Actions | Locked dependencies, a production container, hosting, and verification |
+| Packaging/deployment | uv, Docker, Vercel, DigitalOcean App Platform, GitHub Actions | Locked dependencies, a production container, hosting, and verification |
+
+The deployment guides follow [DigitalOcean’s environment-variable documentation](https://docs.digitalocean.com/products/app-platform/how-to/use-environment-variables/) and [Dockerfile build reference](https://docs.digitalocean.com/products/app-platform/reference/dockerfile/).
 
 Exact resolved dependency versions are recorded in `frontend/package-lock.json`, `photon-agent/package-lock.json`, and `backend/uv.lock`. The deployment container uses Node 22 to build the frontend and Python 3.13 for the API.
 
@@ -124,7 +165,7 @@ Complaint matching uses BBL **or** normalized street address, because condo unit
 ### 1. Pitch equation — conceptual / roadmap
 
 $$
-\text{Disaster Vulnerability} = w_1(\text{Hazard / Flood Zone}) + w_2(\text{Building Age \& Type}) + w_3(\text{Active Violations \& 311s})
+\text{Disaster Vulnerability} = w_1(\text{Hazard / Flood Zone}) + w_2(\text{Building Age and Type}) + w_3(\text{Active Violations and 311s})
 $$
 
 This is the conceptual model for the pitch, not the formula executed by the backend. The weights are not calibrated or implemented. Flood-zone exposure and building age/type are future scoring inputs; existing flood overlays and year-built metadata currently provide context only.
@@ -181,7 +222,9 @@ The **monthly cash-flow gap** is $M - \text{monthly shed rent}$. Positive means 
 
 These differences are **not profit, verified savings, or evidence of negligence or intent**. Loan payments repay principal; repairs can change the asset's condition and value. Fees, penalties, rental changes, tax effects, and repair benefits are excluded. Geometry does not establish a rental price; this version does not infer shed cost from footprint size.
 
-### Connect the Nessie sandbox
+### Optional legacy Nessie adapter
+
+The deployed demo uses **Local simulation**. The original service is not a verified dependency of this project. These instructions describe the existing adapter only; they do not guarantee that the provider is available. [Nessie-Credit](https://github.com/chrisfischer/Nessie-Credit) has a different credit-oriented API and is not a drop-in replacement for this adapter’s customer, merchant, account, purchase, and loan routes. A compatible local service would require additional implementation and testing.
 
 1. Obtain a key from [Nessie](https://api.nessieisreal.com/), and put `NESSIE_API_KEY` in `backend/.env`. Restart the backend after changing the environment. Keep the key out of the browser and Git.
 2. `NESSIE_API_URL` defaults to `https://prod-api.nessieisreal.com`; the client also permits the official `https://api.nessieisreal.com` HTTPS host. Other hosts and redirects are rejected to avoid forwarding credentials elsewhere.
@@ -437,13 +480,15 @@ After deploying, verify the homepage, `/api/health`, address search, both map so
 
 ## Deploy to DigitalOcean
 
+**Current status:** deployment is prepared, but the account still requires a payment method before App Platform can create the app. The Vercel link above remains the verified live demo until a DigitalOcean deployment passes its smoke checks.
+
 The root [Dockerfile](Dockerfile) builds the React frontend and runs FastAPI as a non-root user. FastAPI serves the compiled UI, `/api`, and MP3s from one origin on port 8080. There is no production dependency on Vite's development proxy.
 
-The [.do/app.yaml](.do/app.yaml) template defines one App Platform web service in the NYC region with a 1 GB shared instance and a `/api/health` health check. It uses the public Git repository, so no new GitHub account permissions are required to fetch the source. The template contains no credentials and leaves Google imagery disabled until its build variable is configured.
+The [.do/app.yaml](.do/app.yaml) template defines one App Platform web service in the NYC region with a 1 GB shared instance and a `/api/health` health check. It uses the public Git repository, so no new GitHub account permissions are required to fetch the source. The template lists the deployed provider configuration without including credentials. Fill the secret placeholders privately in App Platform; Google imagery remains disabled until its build variable is configured. The optional Gemini and legacy Nessie variables can be added separately when those integrations are available.
 
 ### App Platform steps
 
-1. Activate your DigitalOcean account and payment method. Review the selected instance's current monthly price before creating the app.
+1. Activate your DigitalOcean account and payment method. Promotional credits do not necessarily remove the payment-method requirement. The configured 1 GB shared instance is $12/month at the time of this deployment preparation; review the current price in the creation summary.
 2. Create an App Platform app from this repository or import `.do/app.yaml` as the app specification. Select `main`, the repository root, and the root `Dockerfile`.
 3. Keep the HTTP port at `8080` and health-check path at `/api/health`.
 4. Set `VITE_GOOGLE_MAPS_API_KEY` as a **BUILD_TIME** variable if Google imagery is wanted. The Dockerfile declares a matching build argument. This key remains browser-visible even if DigitalOcean labels the variable a secret.

@@ -27,10 +27,41 @@ services:
         scope: BUILD_TIME
         type: SECRET
         value: ""
-      - key: NESSIE_API_KEY
+      - key: MONGODB_URI
         scope: RUN_TIME
         type: SECRET
         value: ""
+      - key: MONGODB_DB
+        scope: RUN_TIME
+        value: blindspot
+      - key: TIGER_DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        value: ""
+      - key: XAI_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: ""
+      - key: XAI_MODEL
+        scope: RUN_TIME
+        value: grok-4.7
+      - key: ELEVENLABS_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: ""
+      - key: ELEVENLABS_VOICE_ID
+        scope: RUN_TIME
+        value: JBFqnCBsd6RMkjVDRZzb
+      - key: ELEVENLABS_AGENT_ID
+        scope: RUN_TIME
+        value: ""
+      - key: TAVILY_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: ""
+      - key: SERVERLESS
+        scope: RUN_TIME
+        value: "false"
 ingress:
   rules:
     - component:

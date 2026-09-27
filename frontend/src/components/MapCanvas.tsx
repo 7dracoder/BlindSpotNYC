@@ -207,6 +207,11 @@ export function MapCanvas({
     }
   }, [])
 
+  // Set pitch first: Blocklight's camera ease otherwise cancels the fly-to below.
+  useEffect(() => {
+    if (ready) mapRef.current?.setPerspective(perspective)
+  }, [ready, perspective])
+
   // Fly to and highlight the building being shown
   useEffect(() => {
     const blocklight = mapRef.current
@@ -240,10 +245,6 @@ export function MapCanvas({
       map.off('idle', select)
     }
   }, [ready, building, perspective])
-
-  useEffect(() => {
-    if (ready) mapRef.current?.setPerspective(perspective)
-  }, [ready, perspective])
 
   const layerLoading = useRef(onLayerLoading)
   layerLoading.current = onLayerLoading

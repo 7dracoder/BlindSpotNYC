@@ -1,3 +1,4 @@
+import { attachMapZoomGuard } from '../lib/mapGestures'
 import { useEffect, useRef, useState } from 'react'
 import { createMap, tileKeys, type BlocklightMap, type Theme } from 'blocklight'
 import 'blocklight/style.css'
@@ -173,6 +174,7 @@ export function MapCanvas({
     })
     mapRef.current = blocklight
     const map = blocklight.engine.map
+    const detachZoomGuard = attachMapZoomGuard(container.current!)
     const overlay = new MapboxOverlay({ interleaved: false, layers: [] })
     overlayRef.current = overlay
 
@@ -196,6 +198,7 @@ export function MapCanvas({
 
     return () => {
       detachCmd?.()
+      detachZoomGuard()
       offSelect()
       blocklight.destroy()
       mapRef.current = null
@@ -300,7 +303,7 @@ export function MapCanvas({
 
   return (
     <div className="absolute inset-0">
-      <div ref={container} className="h-full w-full" />
+      <div ref={container} className="h-full w-full touch-none" />
       {hover && <Tooltip hover={hover} />}
     </div>
   )

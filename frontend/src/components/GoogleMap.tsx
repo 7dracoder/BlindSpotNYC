@@ -1,3 +1,4 @@
+import { attachMapZoomGuard } from '../lib/mapGestures'
 import { useEffect, useRef, useState } from 'react'
 import { Deck, FlyToInterpolator, MapView } from '@deck.gl/core'
 import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers'
@@ -105,6 +106,7 @@ export function GoogleMap({
       return
     }
     deckRef.current = deck
+    const detachZoomGuard = attachMapZoomGuard(el)
 
     const syncSize = () => {
       if (dead || !deckRef.current) return
@@ -128,6 +130,7 @@ export function GoogleMap({
       dead = true
       window.clearTimeout(timeout)
       ro.disconnect()
+      detachZoomGuard()
       deck.finalize()
       deckRef.current = null
       setReady(false)
@@ -282,7 +285,7 @@ export function GoogleMap({
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-[#0b1220]">
-      <div ref={container} className="absolute inset-0 overflow-hidden" />
+      <div ref={container} className="absolute inset-0 overflow-hidden touch-none" />
       <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-[#0b1220]" />
       {!tilesLoaded && <div role="status" className="absolute left-1/2 top-1/2 -translate-x-1/2 rounded-md bg-[#141210]/90 px-4 py-3 text-sm text-[#ece6da]">Loading Google 3D map…</div>}
       <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2 bg-[#0b1220]/90 px-3 py-1 text-[10px] text-white">

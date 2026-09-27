@@ -10,6 +10,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from app.config import get_settings
+from app.models.finance import FinanceAssumptions, FinanceScenario
 from app.models.building import (
     Analysis,
     Building,
@@ -18,7 +19,7 @@ from app.models.building import (
     SmsLookupRequest,
     SmsLookupResponse,
 )
-from app.services import city_tiles, map_layers, nyc_data, store, tiger, voice
+from app.services import city_tiles, finance, map_layers, nessie_client, nyc_data, store, tiger, voice
 from app.services.llm import generate_briefing
 from app.services.news import building_news
 from app.services.tts import synthesize
@@ -183,6 +184,40 @@ async def analyze(bin_id: str):
     if not building:
         raise HTTPException(status_code=404, detail="Look up the address first")
     return await _analysis(building)
+
+
+async def _finance_scenario(bin_id: str, assumptions: FinanceAssumptions) -> dict:
+    building = await store.get_building(bin_id, fresh_only=False)
+    if not building:
+        raise HTTPException(status_code=404, detail="Look up the address first")
+    scenario = finance.calculate(building, assumptions)
+    scenario["nessie_configured"] = bool(get_settings().nessie_api_key)
+    scenario["records"] = await nessie_client.cached_records(bin_id, scenario["assumptions"])
+    return scenario
+
+
+@router.get("/finance/{bin_id}", response_model=FinanceScenario)
+async def finance_default(bin_id: str):
+    """Local default scenario; no banking API writes on lookup or tab selection."""
+    return await _finance_scenario(bin_id, FinanceAssumptions())
+
+
+@router.post("/finance/{bin_id}", response_model=FinanceScenario)
+async def finance_calculate(bin_id: str, body: FinanceAssumptions):
+    return await _finance_scenario(bin_id, body)
+
+
+@router.post("/finance/{bin_id}/nessie", response_model=FinanceScenario)
+async def finance_publish(bin_id: str, body: FinanceAssumptions):
+    """Explicitly create/update fictional sandbox records, then read them back."""
+    scenario = await _finance_scenario(bin_id, body)
+    if not scenario["nessie_configured"]:
+        raise HTTPException(status_code=503, detail="Nessie isn't configured. The local calculator is available.")
+    try:
+        scenario["records"] = await nessie_client.sync_scenario(scenario)
+    except nessie_client.NessieError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from None
+    return scenario
 
 
 @router.post("/analyze/{bin_id}/audio", response_model=Analysis)

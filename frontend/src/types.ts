@@ -79,6 +79,39 @@ export type NearbyBuilding = {
   risk_label: RiskLabel
 }
 
+export type FinanceAssumptions = {
+  monthly_shed_rent: number
+  repair_principal: number
+  annual_interest_pct: number
+  term_months: number
+  comparison_months: number
+}
+
+export type FinanceScenario = {
+  bin: string
+  assumptions: FinanceAssumptions
+  monthly_loan_payment: number
+  monthly_cash_flow_gap: number
+  comparison_months: number
+  shed_rental_total: number
+  loan_payment_total: number
+  cumulative_cash_flow_gap: number
+  total_loan_interest: number
+  active_shed: boolean
+  shed_age_days: number | null
+  nessie_configured: boolean
+  records: {
+    provider: 'nessie'
+    customer_id: string
+    merchant_id: string
+    account_id: string
+    purchase_id: string
+    loan_id: string
+    initial_mock_balance: number
+    synced_at: string
+  } | null
+}
+
 export type ViewState = {
   longitude: number
   latitude: number

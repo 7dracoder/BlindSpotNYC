@@ -29,6 +29,7 @@ BlindSpot NYC turns New York City's public building records into an interactive 
 
 - **Address search:** Autocomplete NYC addresses and resolve each building to a Building Identification Number (BIN), tax-lot identifier (BBL), and coordinates.
 - **Two map views:** Explore Google's Photorealistic 3D Tiles or the City map built with Blocklight and MapLibre. Switch between 2D and 3D, pan, zoom, and rotate with modifier-key dragging.
+- **Follow the Money:** Compare assumed shed rent with a fixed-rate facade repair loan. Edit the assumptions, see monthly and cumulative cash-flow differences, and optionally store fictional account, purchase, and loan records in Capital One Nessie.
 - **Explainable risk report:** View a 0–100 score, a LOW/MODERATE/HIGH label, the component scores, violation counts, complaint counts, and sidewalk-shed age.
 - **X-ray overlays:** Inspect red fire/egress markers, blue heat and flood complaint markers, and an orange sidewalk-shed outline around the selected building.
 - **Citywide layers:** Color City-map buildings by unsafe facades, active sheds, vacate orders, rat activity, or heat complaints. Show Sandy inundation and hurricane evacuation zones in either map view.
@@ -78,6 +79,7 @@ Without MongoDB, reports are cached in process memory. Without Tiger Cloud, annu
 | Frontend tooling | Vite 8, npm, Oxlint | Local server, API proxy, production bundle, and linting |
 | Styling | Tailwind CSS 4, Archivo, IBM Plex Mono | Dark map interface, panels, and readable report typography |
 | City renderer | Blocklight, MapLibre GL JS | NYC footprint extrusions and building datasets joined by BIN |
+| Financial simulation | Capital One Nessie, Python Decimal, httpx | Fictional account/purchase/loan records and local fixed-rate payment calculations |
 | 3D and overlays | deck.gl 9 with TerrainExtension, loaders.gl 4 | Google 3D tile streaming, surface-aligned GeoJSON layers and markers, and shed outlines |
 | API | Python 3.11+, FastAPI, Uvicorn | Asynchronous HTTP API and production static-file serving |
 | Validation/config | Pydantic, pydantic-settings | Response schemas and environment-driven configuration |
@@ -159,6 +161,50 @@ For example, a building with a flagged fire condition, a shed older than 730 day
 The backend thresholds and the UI's green/amber/red colors already match these ranges. The current dial is static; pulsing red is a presentation roadmap item, not shipped behavior. If added, pulse only the high-risk dial, and respect reduced-motion preferences.
 
 Citywide rat, facade, vacate, and flood-area layers provide context. They do not independently add points to this formula. The “flood” complaint category specifically covers sewer-backup/catch-basin reports; it is not a modeled flood-risk assessment.
+
+## Follow the Money — Nessie integration
+
+After selecting a building, open **Follow the Money** beside **Risk Profile**. The repair calculator is independent of the hazard score and uses illustrative assumptions, not a landlord's banking records or an actual Capital One loan offer.
+
+Defaults are **$1,500/month shed rent**, **$300,000 repair principal**, **7% annual interest**, a **120-month loan**, and an **84-month comparison**. Use **Edit assumptions → Recalculate** to change them. The comparison horizon is capped at the loan term. It is a user-selected hypothetical horizon, not a claim that the current building has had a shed for seven years. If no active shed is recorded, the panel says so.
+
+For principal $P$, monthly rate $r = \text{annual interest percentage}/1200$, and $n$ payments, BlindSpot calculates:
+
+$$
+M = \begin{cases}
+P/n, & r = 0 \\
+\dfrac{Pr}{1-(1+r)^{-n}}, & r > 0
+\end{cases}
+$$
+
+The **monthly cash-flow gap** is $M - \text{monthly shed rent}$. Positive means the assumed rental payment is lower; negative means the loan payment is lower. With the defaults, the payment is **$3,483.25**, the monthly gap is **+$1,983.25**, and the 84-month gap is **+$166,593.00**. Totals use displayed monthly amounts rounded to cents; a real loan's final payment can differ. The response also includes total interest calculated from the unrounded amortization payment.
+
+These differences are **not profit, verified savings, or evidence of negligence or intent**. Loan payments repay principal; repairs can change the asset's condition and value. Fees, penalties, rental changes, tax effects, and repair benefits are excluded. Geometry does not establish a rental price; this version does not infer shed cost from footprint size.
+
+### Connect the Nessie sandbox
+
+1. Obtain a key from [Nessie](https://api.nessieisreal.com/), and put `NESSIE_API_KEY` in `backend/.env`. Restart the backend after changing the environment. Keep the key out of the browser and Git.
+2. `NESSIE_API_URL` defaults to `https://prod-api.nessieisreal.com`; the client also permits the official `https://api.nessieisreal.com` HTTPS host. Other hosts and redirects are rejected to avoid forwarding credentials elsewhere.
+3. Open **Edit assumptions → Record scenario in Nessie**. Merely looking up a building, opening the tab, or recalculating locally does not write any banking records.
+4. On success, expand **View Nessie record IDs** to see the customer, merchant, account, purchase, and loan IDs. The app reads back purchase/loan amounts before marking the ledger synced.
+
+The backend reuses a fictional **BlindSpot Simulation** customer and shed-rental merchant. Each public building BIN gets a mock Checking account with an initial **$1,000,000 fictional balance**, one pending rental purchase representing **one month**, and one pending small-business repair loan with a **fictional credit score of 700**. No real landlord identity, actual balance, or underwriting decision is represented. There is no recurring charge scheduler.
+
+| Nessie operation | Purpose |
+| --- | --- |
+| `GET/POST /customers` | Find or create the shared fictional customer |
+| `GET/POST /merchants` | Find or create the fictional rental merchant |
+| `GET/POST /customers/{customerId}/accounts` | Reuse or create a building's mock account |
+| `GET/POST /accounts/{accountId}/purchases` | Reuse or create its representative monthly rental purchase |
+| `GET/POST /accounts/{accountId}/loans` | Reuse or create its mock repair loan |
+| `PUT /purchases/{purchaseId}`, `PUT /loans/{loanId}` | Update the same records when assumptions change |
+| `GET /purchases/{purchaseId}`, `GET /loans/{loanId}` | Verify stored amounts |
+
+Nessie's loan schema accepts a `monthly_payment` supplied by the application. **BlindSpot calculates amortization locally** and sends that result; it does not ask Nessie to derive payments from APR and term. The contract follows the official [loan model](https://github.com/nessieisreal/nessie-ios-sdk/blob/master/Nessie-iOS-Wrapper/Loan.swift), [account client](https://github.com/nessieisreal/nessie-javascript-sdk/blob/master/lib/account.js), and [purchase client](https://github.com/nessieisreal/nessie-javascript-sdk/blob/master/lib/purchase.js).
+
+IDs and completed assumptions are cached in MongoDB's `finance` collection, with an in-memory fallback. Cache namespaces distinguish provider hosts and keys without storing the key. Each mutation saves progress; a subsequent request can recover an interrupted creation by finding matching remote records. Identical submissions reuse the ledger, and changing only the comparison horizon makes no new banking records. A process-local lock serializes writes for the current single-process deployment; multiple API workers/replicas would require a distributed lock before enabling concurrent sandbox writes. Remote errors leave the local calculator usable and never fabricate Nessie IDs or expose the key in error messages.
+
+Without a key, the app explicitly shows **Local simulation**. Connecting Nessie and successfully creating records is required to demonstrate actual API usage to judges; a local-only calculator is not a live integration demo.
 
 ## Run locally
 
@@ -248,6 +294,8 @@ Vite substitutes `VITE_*` values at **build time**. A change requires restarting
 | `ELEVENLABS_VOICE_ID` | `JBFqnCBsd6RMkjVDRZzb` | TTS voice used by the project |
 | `ELEVENLABS_AGENT_ID` | Empty | Existing ElevenLabs inspector agent |
 | `TAVILY_API_KEY` | Empty → no news | Address-specific news search |
+| `NESSIE_API_KEY` | Empty → local financial calculator | Nessie sandbox key, backend only |
+| `NESSIE_API_URL` | `https://prod-api.nessieisreal.com` | Allowlisted HTTPS Nessie API origin |
 | `PUBLIC_APP_URL` | `http://127.0.0.1:5173` | Public report links in messaging responses |
 | `PUBLIC_API_URL` | `http://127.0.0.1:8000` | Public API setting, reserved for integrations; current audio URLs are relative |
 | `CORS_ORIGINS` | Localhost/127.0.0.1 on port 5173 | Comma-separated permitted cross-origin web clients |
@@ -299,6 +347,9 @@ All application endpoints use `/api`. FastAPI publishes OpenAPI at `/openapi.jso
 | GET | `/api/search?q=<text>` | Up to six address suggestions; minimum query length two |
 | GET | `/api/lookup?q=<address>` | Resolve, retrieve/cache, and score a building |
 | GET | `/api/lookup?lng=<lng>&lat=<lat>&bin=<bin>` | Resolve a City-map footprint; omit `bin` for a Google-map click |
+| GET | `/api/finance/{bin_id}` | Default financial scenario; no remote banking writes |
+| POST | `/api/finance/{bin_id}` | Recalculate with a JSON assumptions body |
+| POST | `/api/finance/{bin_id}/nessie` | Create/update and verify fictional Nessie records |
 | GET | `/api/analyze/{bin_id}` | Cached or newly generated briefing and news for a previously looked-up building |
 | POST | `/api/analyze/{bin_id}/audio` | Generate audio if available and return the analysis with `audio_url`/`audio_engine` |
 | GET | `/api/audio/{filename}` | Serve a generated MP3 |
@@ -368,7 +419,7 @@ The [.do/app.yaml](.do/app.yaml) template defines one App Platform web service i
 2. Create an App Platform app from this repository or import `.do/app.yaml` as the app specification. Select `main`, the repository root, and the root `Dockerfile`.
 3. Keep the HTTP port at `8080` and health-check path at `/api/health`.
 4. Set `VITE_GOOGLE_MAPS_API_KEY` as a **BUILD_TIME** variable if Google imagery is wanted. The Dockerfile declares a matching build argument. This key remains browser-visible even if DigitalOcean labels the variable a secret.
-5. Add desired backend credentials as **RUN_TIME secret** variables: `MONGODB_URI`, `TIGER_DATABASE_URL`, `GEMINI_API_KEY`/`XAI_API_KEY`, `ELEVENLABS_API_KEY`, and `TAVILY_API_KEY`. Add `ELEVENLABS_AGENT_ID` and any provider model/voice overrides as needed. Do not paste local `.env` files into GitHub.
+5. Add desired backend credentials as **RUN_TIME secret** variables: `MONGODB_URI`, `TIGER_DATABASE_URL`, `GEMINI_API_KEY`/`XAI_API_KEY`, `ELEVENLABS_API_KEY`, `TAVILY_API_KEY`, and `NESSIE_API_KEY`. Add `ELEVENLABS_AGENT_ID` and any provider model/voice overrides as needed. Do not paste local `.env` files into GitHub.
 6. Keep `PUBLIC_APP_URL`, `PUBLIC_API_URL`, and `CORS_ORIGINS` pointed at the assigned app URL. The supplied spec uses DigitalOcean's `${APP_URL}` binding for these values.
 7. Ensure Atlas/Tiger permit the deployment's connection and egress network. Prefer provider-supported restricted access rather than exposing a database broadly.
 8. Deploy, then verify `/api/health`, the homepage, an address lookup, both map sources, and audio. Add the app's HTTPS origin to the Google key's allowed referrers and rebuild if required.
@@ -427,11 +478,13 @@ MongoDB Atlas and Tiger Cloud persist independently of the container. With the i
 │   │   ├── main.py               # Lifespan, middleware, routes, static files
 │   │   ├── config.py             # Environment settings
 │   │   ├── db.py                 # Atlas connection and indexes
-│   │   ├── models/building.py    # API schemas
+│   │   ├── models/               # Building and financial scenario API schemas
 │   │   ├── routers/api.py        # Lookup, analysis, audio, voice, map, messaging
 │   │   └── services/
 │   │       ├── nyc_data.py       # Address resolution and normalized city records
 │   │       ├── scoring.py        # Risk rules and explanations
+│   │       ├── finance.py        # Fixed-rate loan and cash-flow calculator
+│   │       ├── nessie_client.py  # Fictional banking records and read-back verification
 │   │       ├── store.py          # Snapshot cache and nearby reports
 │   │       ├── city_tiles.py     # Cached footprint/street/land geometry
 │   │       ├── map_layers.py     # Context layers
@@ -441,7 +494,7 @@ MongoDB Atlas and Tiger Cloud persist independently of the container. With the i
 │   │       ├── tts.py            # Audio synthesis and MP3 files
 │   │       └── voice.py          # Inspector report and conversation tokens
 │   ├── scripts/                  # Demo ingest and sample voice-agent creation
-│   ├── tests/                    # Deployment/audio regression check
+│   ├── tests/                    # Audio cache, financial math, and Nessie contract checks
 │   ├── pyproject.toml
 │   └── uv.lock
 ├── frontend/

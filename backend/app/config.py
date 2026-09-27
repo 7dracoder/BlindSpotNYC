@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,6 +18,8 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str = "JBFqnCBsd6RMkjVDRZzb"
     elevenlabs_agent_id: str = ""
     tavily_api_key: str = ""
+    nessie_api_key: str = ""
+    nessie_api_url: Literal["https://prod-api.nessieisreal.com", "https://api.nessieisreal.com"] = "https://prod-api.nessieisreal.com"
     public_app_url: str = "http://127.0.0.1:5173"
     public_api_url: str = "http://127.0.0.1:8000"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"

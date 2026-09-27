@@ -27,6 +27,10 @@ services:
         scope: BUILD_TIME
         type: SECRET
         value: ""
+      - key: NESSIE_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: ""
 ingress:
   rules:
     - component:

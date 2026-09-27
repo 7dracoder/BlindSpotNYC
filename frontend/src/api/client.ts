@@ -1,4 +1,4 @@
-import type { Analysis, Building, NearbyBuilding, Place } from '../types'
+import type { Analysis, Building, FinanceAssumptions, FinanceScenario, NearbyBuilding, Place } from '../types'
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -22,6 +22,11 @@ export function audioSrc(path: string | null): string | null {
 }
 
 export const api = {
+  financeDefault: (bin: string, signal?: AbortSignal) => request<FinanceScenario>(`/api/finance/${bin}`, { signal }),
+  finance: (bin: string, body: FinanceAssumptions, publish: boolean, signal?: AbortSignal) =>
+    request<FinanceScenario>(`/api/finance/${bin}${publish ? '/nessie' : ''}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal,
+    }),
   search: (q: string) => request<Place[]>(`/api/search?q=${encodeURIComponent(q)}`),
   lookup: (q: string) => request<Building>(`/api/lookup?q=${encodeURIComponent(q)}`),
   lookupAt: (bin: string, lng: number, lat: number) =>

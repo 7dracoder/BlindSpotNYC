@@ -13,6 +13,22 @@ BUILDING_TTL = timedelta(hours=12)
 
 _buildings: dict[str, dict[str, Any]] = {}
 _analyses: dict[str, dict[str, Any]] = {}
+_finance: dict[str, dict[str, Any]] = {}
+
+
+async def get_finance_record(key: str) -> dict[str, Any] | None:
+    db = get_db()
+    if db is None:
+        return deepcopy(_finance.get(key))
+    return await db.finance.find_one({"_id": key}, {"_id": 0})
+
+
+async def save_finance_record(key: str, doc: dict[str, Any]) -> None:
+    db = get_db()
+    if db is None:
+        _finance[key] = deepcopy(doc)
+    else:
+        await db.finance.replace_one({"_id": key}, doc, upsert=True)
 
 
 def _fresh(doc: dict[str, Any] | None) -> bool:

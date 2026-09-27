@@ -1,4 +1,6 @@
 import { audioSrc } from '../api/client'
+import { useState } from 'react'
+import { FinancePanel } from './FinancePanel'
 import type { Analysis, Building } from '../types'
 import { RISK_COLOR, RiskDial } from './RiskDial'
 import { VoiceInspector } from './VoiceInspector'
@@ -75,6 +77,7 @@ function Trend({ series, insight }: { series: Building['complaint_trend']; insig
 }
 
 export function ResultCard({ building: b, analysis, analysisError, audioPending }: Props) {
+  const [tab, setTab] = useState<'risk' | 'money'>('risk')
   const fire = b.violations.filter((v) => v.fire).length
   const complaints = b.complaint_counts.heat + b.complaint_counts.flood
   const src = audioSrc(analysis?.audio_url ?? null)
@@ -90,6 +93,20 @@ export function ResultCard({ building: b, analysis, analysisError, audioPending 
           {b.year_built && ` · built ${b.year_built}`}
         </p>
       </header>
+
+      <div role="tablist" aria-label="Building report" className="flex gap-1 rounded-lg border border-white/10 bg-black/20 p-1">
+        {(['risk', 'money'] as const).map((value) => <button key={value} role="tab" id={`${value}-tab-${b.bin}`} aria-controls={`${value}-panel-${b.bin}`} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} onClick={() => setTab(value)} onKeyDown={(event) => {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+          event.preventDefault()
+          const next = event.key === 'Home' ? 'risk' : event.key === 'End' ? 'money' : value === 'risk' ? 'money' : 'risk'
+          setTab(next)
+          event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`#${next}-tab-${b.bin}`)?.focus()
+        }} className={`flex-1 rounded-md px-2 py-2 text-[11px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#63c6c0] ${tab === value ? 'bg-white/10 text-[#f3efe6]' : 'text-[#8d8579] hover:text-[#d8d1c4]'}`}>
+          {value === 'risk' ? 'Risk Profile' : 'Follow the Money'}
+        </button>)}
+      </div>
+
+      {tab === 'money' ? <FinancePanel key={b.bin} bin={b.bin} /> : <div role="tabpanel" id={`risk-panel-${b.bin}`} aria-labelledby={`risk-tab-${b.bin}`} className="space-y-3">
 
       <div className="flex items-center gap-4">
         <RiskDial score={b.hazard_score} label={b.risk_label} />
@@ -167,6 +184,7 @@ export function ResultCard({ building: b, analysis, analysisError, audioPending 
         {new Date(b.fetched_at).toLocaleString()}
         {b.data_gaps.length > 0 && <span className="text-[#fca5a5]"> · unavailable: {b.data_gaps.join(', ')}</span>}
       </p>
+      </div>}
     </div>
   )
 }

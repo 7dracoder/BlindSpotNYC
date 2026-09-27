@@ -399,13 +399,21 @@ Set `TIGER_DATABASE_URL` to a PostgreSQL service with TimescaleDB support. The c
 
 ```bash
 cd photon-agent
-cp .env.example .env
+test -f .env || cp .env.example .env
 # Configure your Spectrum project and BLINDSPOT_API_URL.
 npm ci
 npm start
 ```
 
 The agent listens through Spectrum's iMessage and terminal providers. Messages containing an address are forwarded to `/api/sms/lookup`. Greetings or messages without digits return usage help. This is a separate long-running process and is not included in the web container or default DigitalOcean spec. Do not send a real message during testing unless you intend to contact that recipient.
+
+For the deployed API, set `BLINDSPOT_API_URL=https://blindspot-nyc.vercel.app` in the agent's `.env`. Preserve the existing `SPECTRUM_PROJECT_ID` and `SPECTRUM_PROJECT_SECRET`; do not put these credentials in frontend environment variables. To run just the iMessage listener without the terminal chat interface:
+
+```bash
+PHOTON_TERMINAL=false npm start
+```
+
+In Photon, open the project's **Users** page and find your registered sender's **Texts on** number. From that registered phone, send the assigned number `3605 Sedgwick Avenue, Bronx` or `help`. Shared lines route messages by sender, so an unrelated phone cannot use another person's assignment. The listener must remain running and its host must stay awake. Provider delivery failures are logged without the recipient's number and do not stop the listener. If Photon returns `Target not allowed for this project`, delivery is still blocked by the provider; verify the registered sender and project routing before claiming a successful iMessage test.
 
 ## Deploy to Vercel
 

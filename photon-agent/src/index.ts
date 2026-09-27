@@ -15,6 +15,7 @@ async function lookup(address: string): Promise<string> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text: address }),
+    signal: AbortSignal.timeout(60_000),
   })
   if (!res.ok) return "BlindSpot can't reach NYC records right now. Try again in a minute."
   const data = (await res.json()) as { reply_text: string }
@@ -22,24 +23,38 @@ async function lookup(address: string): Promise<string> {
 }
 
 // Reads SPECTRUM_PROJECT_ID / SPECTRUM_PROJECT_SECRET from the environment
-const app = await Spectrum({ providers: [imessage.config(), terminal.config()] })
-console.log('BlindSpot agent listening on iMessage + terminal')
+const useTerminal = process.env.PHOTON_TERMINAL !== 'false'
+const credentials = {
+  projectId: process.env.SPECTRUM_PROJECT_ID!,
+  projectSecret: process.env.SPECTRUM_PROJECT_SECRET!,
+}
+const app = useTerminal
+  ? await Spectrum({ ...credentials, providers: [imessage.config(), terminal.config()] })
+  : await Spectrum({ ...credentials, providers: [imessage.config()] })
+console.log(`BlindSpot agent listening on iMessage${useTerminal ? ' + terminal' : ''}`)
 
 for await (const [space, message] of app.messages) {
   if (message.direction !== 'inbound' || message.content.type !== 'text') continue
   const text = message.content.text.trim()
 
-  if (!/\d/.test(text) || /^(hi|hey|hello|help|start)\b/i.test(text)) {
-    await message.reply(HELP)
-    continue
-  }
-
-  await space.responding(async () => {
-    try {
-      await message.reply(await lookup(text))
-    } catch (err) {
-      console.error(err)
-      await message.reply('Something went wrong looking that up. Try another address.')
+  try {
+    console.log(`Received ${message.platform} address/help request`)
+    if (!/\d/.test(text) || /^(hi|hey|hello|help|start)\b/i.test(text)) {
+      await message.reply(HELP)
+      continue
     }
-  })
+    await space.responding(async () => {
+      let reply: string
+      try {
+        reply = await lookup(text)
+      } catch {
+        reply = 'Something went wrong looking that up. Try another address.'
+      }
+      await message.reply(reply)
+    })
+    console.log(`Replied to ${message.platform} request`)
+  } catch (err) {
+    // A provider rejection must not stop the listener or expose recipient data.
+    console.error('Photon could not deliver the reply:', err instanceof Error ? err.name : 'UnknownError')
+  }
 }

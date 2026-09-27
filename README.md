@@ -78,7 +78,7 @@ Without MongoDB, reports are cached in process memory. Without Tiger Cloud, annu
 | Frontend tooling | Vite 8, npm, Oxlint | Local server, API proxy, production bundle, and linting |
 | Styling | Tailwind CSS 4, Archivo, IBM Plex Mono | Dark map interface, panels, and readable report typography |
 | City renderer | Blocklight, MapLibre GL JS | NYC footprint extrusions and building datasets joined by BIN |
-| 3D and overlays | deck.gl 9, loaders.gl 4 | Google 3D tile streaming, GeoJSON layers, shed polygons, and markers |
+| 3D and overlays | deck.gl 9 with TerrainExtension, loaders.gl 4 | Google 3D tile streaming, surface-aligned GeoJSON layers and markers, and shed outlines |
 | API | Python 3.11+, FastAPI, Uvicorn | Asynchronous HTTP API and production static-file serving |
 | Validation/config | Pydantic, pydantic-settings | Response schemas and environment-driven configuration |
 | HTTP clients | HTTPX, browser Fetch API | Public-data and integration requests |
@@ -468,7 +468,7 @@ GitHub Actions runs these checks and builds the Docker image on pushes to `main`
 - **Freshness:** Building snapshots are reused for 12 hours. Map context layers also use a 12-hour process cache; HTTP cache headers vary by route. Lookups are not necessarily fresh requests to every source.
 - **Partial records:** Upstream errors are recorded in `data_gaps`. The score may understate conditions when a source is missing. Review the gaps and the original city records.
 - **Query limits:** A building lookup retrieves up to 150 HPD and 50 DOB violation rows, 200 permits per shed source, and the 100 most recent complaint records. Recent complaint totals come from aggregate queries, so displayed markers and lists need not equal the totals. Historical and citywide queries have row limits and are not fully paginated.
-- **Approximate markers:** X-ray dots are deterministic visual placements inside a footprint. HPD story values inform fire-marker height when present; other heights/positions are illustrative. At most 60 markers per kind are shown. They are not measured incident coordinates or an interior floor plan.
+- **Approximate markers:** X-ray dots are deterministic visual placements inside the original footprint, excluding concave courtyards. HPD story values inform fire-marker height when present; other heights/positions are illustrative. Google view uses [deck.gl's TerrainExtension](https://deck.gl/docs/api-reference/extensions/terrain-extension) to sample the photographic surface; interior marker heights are positioned below the roof using the city-recorded building height. Nearby markers and shed outlines follow the surface; area polygons are draped onto it. The terrain extension is experimental, and differences between city footprints/heights and Google's imagery can still affect alignment. At most 60 markers per kind are shown. They are not measured incident coordinates or an interior floor plan.
 - **Geometry fallback:** If no footprint is available, the report uses a small rectangle around the resolved coordinate. Footprint heights are converted from feet to meters.
 - **Interpretation:** Complaint counts represent reports, not unique confirmed incidents. The current year is incomplete, and the Tiger insight compares its count to historical annual counts without seasonality adjustment.
 - **News matching:** The filter checks the house number and first street token and can still produce imperfect matches. Open linked sources to verify them.

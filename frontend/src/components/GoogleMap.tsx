@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Deck, FlyToInterpolator, MapView } from '@deck.gl/core'
-import { GeoJsonLayer, PolygonLayer, ScatterplotLayer } from '@deck.gl/layers'
+import { GeoJsonLayer, ScatterplotLayer } from '@deck.gl/layers'
 import { Tile3DLayer } from '@deck.gl/geo-layers'
 import { Tiles3DLoader } from '@loaders.gl/3d-tiles'
+import { _TerrainExtension as TerrainExtension, type TerrainExtensionProps } from '@deck.gl/extensions'
 import type { PickingInfo } from '@deck.gl/core'
 import { createGoogleTileFetch } from '../lib/googleTiles'
-import { centroid, scaleRing, xrayDots, type Dot } from '../lib/xray'
+import { centroid, xrayDots, type Dot } from '../lib/xray'
 import type { Building, Complaint, NearbyBuilding, Violation } from '../types'
 import { INITIAL_VIEW } from '../data/goldenPath'
 import { AREA_LAYERS, areaUrl } from '../data/mapLayers'
@@ -171,11 +172,22 @@ export function GoogleMap({
   useEffect(() => {
     const deck = deckRef.current
     if (!ready || !deck) return
-    const shed = building?.shed.active ? [scaleRing(building.footprint, 1.12)] : []
+    const shed = {
+      type: 'FeatureCollection' as const,
+      features: building?.shed.active ? [{
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [building.footprint.map(([lng, lat]) => [lng, lat, 0.75])],
+        },
+      }] : [],
+    }
     deck.setProps({
       layers: [
         new Tile3DLayer({
           id: 'google-3d',
+          operation: 'terrain+draw',
           data: TILES,
           loader: Tiles3DLoader,
           loadOptions: {
@@ -212,20 +224,29 @@ export function GoogleMap({
               filled: true,
               stroked: false,
               getFillColor: hex(l.color, l.id === 'evacuation-zones' ? 70 : 80),
+              extensions: [new TerrainExtension()],
+              terrainDrawMode: 'drape',
             }),
         ),
-        new PolygonLayer<[number, number][]>({
+        new GeoJsonLayer({
           id: 'shed',
           data: shed,
-          getPolygon: (d) => d,
-          extruded: true,
-          getElevation: 4,
-          getFillColor: [234, 88, 12, 210],
+          // Follow the actual footprint on the photographed surface. Scaling
+          // concave rings creates intersecting edges and invalid exterior bands.
+          filled: false,
+          stroked: true,
+          getLineColor: [234, 88, 12, 220],
+          getLineWidth: 1.5,
+          lineWidthMinPixels: 2,
+          extensions: [new TerrainExtension()],
+          terrainDrawMode: 'offset',
         }),
-        new ScatterplotLayer<NearbyBuilding>({
+        new ScatterplotLayer<NearbyBuilding, TerrainExtensionProps>({
           id: 'scanned',
           data: nearby.filter((n) => n.bin !== building?.bin),
-          getPosition: (d) => d.location.coordinates,
+          getPosition: (d) => [...d.location.coordinates, 0.5],
+          extensions: [new TerrainExtension()],
+          terrainDrawMode: 'offset',
           getFillColor: (d) => [...RISK_RGB[d.risk_label], 230],
           getLineColor: [15, 14, 12, 255],
           stroked: true,
@@ -237,10 +258,14 @@ export function GoogleMap({
           onHover: ({ object, x, y }: PickingInfo<NearbyBuilding>) =>
             setHover(object ? { type: 'nearby', building: object, x, y } : null),
         }),
-        new ScatterplotLayer<Dot>({
+        new ScatterplotLayer<Dot, TerrainExtensionProps>({
           id: 'xray',
-          data: building && xray ? xrayDots(building) : [],
+          data: building && xray ? xrayDots(building, 'roof') : [],
           getPosition: (d) => d.position,
+          extensions: [new TerrainExtension()],
+          terrainDrawMode: 'offset',
+          // Interior conditions remain visible through the photographic mesh.
+          parameters: { depthCompare: 'always', depthWriteEnabled: false },
           getFillColor: (d) => [...DOT_COLOR[d.kind]],
           getLineColor: [255, 255, 255, 190],
           stroked: true,

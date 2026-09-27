@@ -258,11 +258,6 @@ export function GoogleMap({
   return (
     <div className="absolute inset-0 overflow-hidden bg-[#0b1220]">
       <div ref={container} className="absolute inset-0 overflow-hidden" />
-      {/* Coarse Photorealistic LODs fray at the near edge and far horizon of a pitched view */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#0b1220] from-55% via-[#0b1220]/85 to-transparent"
-      />
       <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-[#0b1220]" />
       {!tilesLoaded && <div role="status" className="absolute left-1/2 top-1/2 -translate-x-1/2 rounded-md bg-[#141210]/90 px-4 py-3 text-sm text-[#ece6da]">Loading Google 3D map…</div>}
       <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2 bg-[#0b1220]/90 px-3 py-1 text-[10px] text-white">

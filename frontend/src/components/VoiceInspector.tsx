@@ -6,6 +6,7 @@ import {
   useConversationStatus,
 } from '@elevenlabs/react'
 import { api } from '../api/client'
+import { ShimmerButton } from './ui/ShimmerButton'
 
 type Line = { role: 'user' | 'agent'; text: string }
 
@@ -106,14 +107,27 @@ function Inspector({ bin, address, lines, clear }: { bin: string; address: strin
   return (
     <div>
       {!live ? (
-        <button
+        <ShimmerButton
           onClick={() => void start()}
           disabled={busy}
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-[#f59e0b]/50 bg-[#f59e0b]/10 px-3 py-2.5 text-[13px] font-semibold text-[#fbbf24] transition hover:bg-[#f59e0b]/20 disabled:opacity-60"
+          aria-busy={busy}
+          className="w-full text-[13px]"
         >
-          <span className={`h-2 w-2 rounded-full bg-[#f59e0b] ${busy ? 'animate-pulse' : ''}`} />
+          <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1a1408]/10">
+            {busy ? (
+              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 animate-spin motion-reduce:animate-none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="9" opacity="0.25" />
+                <path d="M12 3a9 9 0 0 1 9 9" strokeLinecap="round" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="2" width="6" height="12" rx="3" />
+                <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" />
+              </svg>
+            )}
+          </span>
           {busy ? 'Connecting…' : 'Talk to the inspector'}
-        </button>
+        </ShimmerButton>
       ) : (
         <div className="flex items-center justify-between rounded-md bg-white/[0.05] px-3 py-2">
           <span className="flex items-center gap-2 text-[12px] text-[#ece6da]">

@@ -74,6 +74,7 @@ Without MongoDB, reports are cached in process memory. Without Tiger Cloud, annu
 | Area | Tools | Purpose |
 | --- | --- | --- |
 | Web UI | React 19, TypeScript 6 | Search, report state, controls, and interactive components |
+| Voice button | [Watermelon UI Shimmer Button](https://registry.watermelon.sh/r/shimmer-button.json) | Animated inspector button adapted to the app palette, with keyboard focus and reduced motion support |
 | Frontend tooling | Vite 8, npm, Oxlint | Local server, API proxy, production bundle, and linting |
 | Styling | Tailwind CSS 4, Archivo, IBM Plex Mono | Dark map interface, panels, and readable report typography |
 | City renderer | Blocklight, MapLibre GL JS | NYC footprint extrusions and building datasets joined by BIN |
@@ -476,4 +477,4 @@ GitHub Actions runs these checks and builds the Docker image on pushes to `main`
 - **Public API:** The prototype has no end-user authentication or application-level rate limiting. Before a broad public launch, protect provider-backed endpoints and set usage limits; CORS alone does not control API access.
 - **Performance:** The 3D mapping dependencies produce a large frontend bundle, and citywide geometry can take time to warm up. City view remains available when Google cannot load.
 
-Public-data attribution belongs to NYC's publishing agencies; Google imagery and other provider services remain subject to their own terms. No project license has been declared in this repository.
+Public-data attribution belongs to NYC's publishing agencies; Google imagery and other provider services remain subject to their own terms. The adapted Watermelon UI button is MIT-licensed; its attribution is in [third-party notices](frontend/THIRD_PARTY_NOTICES.md). Browser-logo assets and their generation prompt are documented in [asset notes](frontend/ASSETS.md). No project license has been declared in this repository.
